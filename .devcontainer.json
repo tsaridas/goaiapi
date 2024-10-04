@@ -1,0 +1,21 @@
+{
+    "name": "Go Development",
+    "image": "mcr.microsoft.com/devcontainers/go:latest",
+    "features": {
+      "ghcr.io/devcontainers/features/go:1": {
+        "version": "latest"
+      }
+    },
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "golang.go",
+          "streetsidesoftware.code-spell-checker"
+        ]
+      }
+    },
+    "forwardPorts": [3000],
+    "postCreateCommand": "go install"
+    
+  }
+  
