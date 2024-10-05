@@ -73,6 +73,16 @@ func main() {
 
 	// Choose a cheaper model
 	model := client.GenerativeModel("gemini-1.5-flash")
+	model.SafetySettings = []*genai.SafetySetting{
+		{
+			Category:  genai.HarmCategoryDangerousContent,
+			Threshold: genai.HarmBlockNone,
+		},
+		{
+			Category:  genai.HarmCategoryHarassment,
+			Threshold: genai.HarmBlockNone,
+		},
+	}
 
 	http.HandleFunc("/ai", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -135,7 +145,10 @@ func main() {
 		session := model.StartChat()
 		log.Println("Chat started with the AI client")
 		send := func(msg string, streaming bool) string {
-
+			log.Println("sending message: ", msg)
+			if msg == "" {
+				return ""
+			}
 			nh := len(session.History)
 			if streaming {
 				iter := session.SendMessageStream(ctx, genai.Text(msg))
@@ -176,7 +189,6 @@ func main() {
 
 			// Start timing
 			startTime := time.Now()
-
 			// Assuming session returns a string response for the chat
 			chatResponse := Message{Content: send(msg.Content, true)}
 			chatResponseJSON, err := json.Marshal(chatResponse)
@@ -206,6 +218,9 @@ func main() {
 		session := model.StartChat()
 		log.Println("Chat started with the AI client")
 		send := func(msg string, streaming bool) string {
+			if msg == "echo true" || msg == "echo false" {
+				return msg
+			}
 
 			nh := len(session.History)
 			if streaming {
@@ -232,7 +247,7 @@ func main() {
 			// Last history item is the one we just got from the model.
 			return contentString(session.History[len(session.History)-1])
 		}
-		send("you are connected to a bash terminal that runs on a Debian GNU/Linux 12 (bookworm).Everything you reply will be copy pasted to bash as is to be ran. Please don't reply with anything other than bash commands. if you don't know return echo false. You will be pasted the reply of the bash terminal as a response and if the task is done return echo true. Please make sure that all commands you send return and don't hang forver. don't echo the reply.", false)
+		send("you are connected to a bash terminal that runs on a Debian GNU/Linux 12 (bookworm).Everything you reply will be copy pasted to bash as is to be ran. Please don't reply with anything other than bash commands. if you don't know return echo false. You will be pasted the reply of the bash terminal as a response and if the task is done return echo true. Please make sure that all commands you send return and don't hang forver and are cli ready meaning that you cannot confirum. don't install any new packages unless asked.", false)
 		for {
 			_, p, err := conn.ReadMessage()
 			if err != nil {
@@ -253,15 +268,21 @@ func main() {
 			// Assuming session returns a string response for the chat
 			chatResponse := Message{Content: reply}
 			// run a bash command with the reply on the system
+			log.Println("running command: ", reply)
 			cmd := exec.Command("bash", "-c", reply)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				log.Println("error running command: ", err, string(output))
-				err_reply := send(string(output), false)
-				log.Println("error reply: ", err_reply)
-				err_reply = send(err_reply, false)
-				log.Println("fixed error reply: ", err_reply)
+				fixed_reply := send("There was an error running the command. Output was: "+string(output)+"\nFix it.", false)
+				cmd := exec.Command("bash", "-c", string(fixed_reply))
+				output, err := cmd.CombinedOutput()
+				if err != nil {
+					log.Println("error running second command: ", err, string(output), fixed_reply)
+				}
+				log.Println("Fixed error reply: ", string(output))
+
 			}
+			log.Println("sending back command output: ", string(output))
 			chatResponse.Content = string(output)
 
 			chatResponseJSON, err := json.Marshal(chatResponse)
@@ -278,6 +299,15 @@ func main() {
 			// End timing and log the duration
 			duration := time.Since(startTime)
 			log.Printf("Response time: %v\n", duration)
+		}
+	})
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		if r.Method == "OPTIONS" {
+			return
 		}
 	})
 

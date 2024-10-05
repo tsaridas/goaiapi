@@ -15,7 +15,7 @@ type Message struct {
 }
 
 func main() {
-	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/ops", nil)
+	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/start-chat", nil)
 	if err != nil {
 		log.Fatal("Failed to connect:", err)
 	}
