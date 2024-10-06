@@ -83,6 +83,10 @@ func main() {
 			Threshold: genai.HarmBlockNone,
 		},
 	}
+	model.SetTemperature(1)
+	model.SetTopK(40)
+	model.SetTopP(0.95)
+	model.SetMaxOutputTokens(8192)
 
 	http.HandleFunc("/ai", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -216,6 +220,20 @@ func main() {
 		defer conn.Close()
 		// Start a chat with the AI client using model.StartChat
 		session := model.StartChat()
+		session.History = []*genai.Content{
+			{
+				Role: "user",
+				Parts: []genai.Part{
+					genai.Text("you are connected to a bash terminal that runs on a Debian GNU/Linux 12 (bookworm).Everything you reply will be copy pasted to bash as is to be ran. Please don't reply with anything other than bash commands. if you don't know return echo false. You will be pasted the reply of the bash terminal as a response and if the task is done return echo true. Please make sure that all commands you send return and don't hang forever and are cli ready meaning that you cannot confirm. don't install any new packages unless asked. Do you understand?"),
+				},
+			},
+			{
+				Role: "model",
+				Parts: []genai.Part{
+					genai.Text("echo true"),
+				},
+			},
+		}
 		log.Println("Chat started with the AI client")
 		send := func(msg string, streaming bool) string {
 			if msg == "echo true" || msg == "echo false" {
@@ -247,7 +265,7 @@ func main() {
 			// Last history item is the one we just got from the model.
 			return contentString(session.History[len(session.History)-1])
 		}
-		send("you are connected to a bash terminal that runs on a Debian GNU/Linux 12 (bookworm).Everything you reply will be copy pasted to bash as is to be ran. Please don't reply with anything other than bash commands. if you don't know return echo false. You will be pasted the reply of the bash terminal as a response and if the task is done return echo true. Please make sure that all commands you send return and don't hang forver and are cli ready meaning that you cannot confirum. don't install any new packages unless asked.", false)
+
 		for {
 			_, p, err := conn.ReadMessage()
 			if err != nil {
@@ -271,15 +289,19 @@ func main() {
 			log.Println("running command: ", reply)
 			cmd := exec.Command("bash", "-c", reply)
 			output, err := cmd.CombinedOutput()
+			log.Println("output", err)
 			if err != nil {
 				log.Println("error running command: ", err, string(output))
-				fixed_reply := send("There was an error running the command. Output was: "+string(output)+"\nFix it.", false)
+				fixed_reply := send("Fix the command and return it. There was an error running the command. Output was: "+string(output)+"\n", false)
 				cmd := exec.Command("bash", "-c", string(fixed_reply))
-				output, err := cmd.CombinedOutput()
-				if err != nil {
-					log.Println("error running second command: ", err, string(output), fixed_reply)
+				newOutput, newErr := cmd.CombinedOutput()
+				if newErr != nil {
+					log.Println("error running second command: ", newErr, string(newOutput), fixed_reply)
+					output = newOutput
+				} else {
+					log.Println("Fixed error reply: ", string(newOutput))
+					output = newOutput
 				}
-				log.Println("Fixed error reply: ", string(output))
 
 			}
 			log.Println("sending back command output: ", string(output))
