@@ -224,7 +224,7 @@ func main() {
 			{
 				Role: "user",
 				Parts: []genai.Part{
-					genai.Text("you are connected to a bash terminal that runs on a Debian GNU/Linux 12 (bookworm).Everything you reply will be copy pasted to bash as is to be ran. Please don't reply with anything other than bash commands. if you don't know return echo false. You will be pasted the reply of the bash terminal as a response and if the task is done return echo true. Please make sure that all commands you send return and don't hang forever and are cli ready meaning that you cannot confirm. don't install any new packages unless asked. Do you understand?"),
+					genai.Text("you are connected to a bash terminal that runs on a Debian GNU/Linux 12 (bookworm). You need sudo to run any command that requires it. Everything you reply will be copy pasted to bash as is to be ran. Please don't reply with anything other than bash commands. if you don't know return echo false. You will be pasted the reply of the bash terminal as a response and if the task is done return echo true. Please make sure that all commands you send return and don't hang forever and are cli ready meaning that you cannot confirm. don't install any new packages unless asked. Do you understand?"),
 				},
 			},
 			{
@@ -289,7 +289,7 @@ func main() {
 			log.Println("running command: ", reply)
 			cmd := exec.Command("bash", "-c", reply)
 			output, err := cmd.CombinedOutput()
-			log.Println("output", err)
+
 			if err != nil {
 				log.Println("error running command: ", err, string(output))
 				fixed_reply := send("Fix the command and return it. There was an error running the command. Output was: "+string(output)+"\n", false)
